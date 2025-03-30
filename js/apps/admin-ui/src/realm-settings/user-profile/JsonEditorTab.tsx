@@ -32,7 +32,7 @@ export const JsonEditorTab = () => {
   }
 
   return (
-    <PageSection variant="light">
+    <PageSection hasBodyWrapper={false}>
       <CodeEditor
         language="json"
         value={code}
@@ -47,7 +47,7 @@ export const JsonEditorTab = () => {
             onClick={handleSave}
             isDisabled={isSaving}
           >
-            {t("save")}
+            {t("save")}!
           </Button>
           <Button variant="link" onClick={resetCode} isDisabled={isSaving}>
             {t("revert")}

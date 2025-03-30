@@ -38,7 +38,7 @@
     </#if>
   </head>
   <body data-page-id="welcome">
-    <div class="pf-v5-c-background-image" style="--pf-v5-c-background-image--BackgroundImage: url(${baseUrl}${resourcesPath}/background.svg)"></div>
+    <div class="pf-v5-c-background-image" style="--pf-v6-c-background-image--BackgroundImage: url(${baseUrl}${resourcesPath}/background.svg)"></div>
     <div class="pf-v5-c-login">
       <div class="pf-v5-c-login__container">
         <header class="pf-v5-c-login__header">

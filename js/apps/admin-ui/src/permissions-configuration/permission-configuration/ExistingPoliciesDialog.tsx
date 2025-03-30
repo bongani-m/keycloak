@@ -6,9 +6,8 @@ import {
   DropdownItem,
   DropdownList,
   MenuToggle,
-  Modal,
-  ModalVariant,
 } from "@patternfly/react-core";
+import { Modal, ModalVariant } from "@patternfly/react-core/deprecated";
 import { CaretDownIcon, FilterIcon } from "@patternfly/react-icons";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";

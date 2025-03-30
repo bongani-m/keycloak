@@ -9,17 +9,12 @@ type DefaultAvatarProps = {
 
 export const DefaultAvatar = ({
   className = "",
-  border,
+  // TODO: [bongani-m] check if this is still needed
+  //   border,
   size = "md",
 }: DefaultAvatarProps) => (
   <svg
-    className={css(
-      styles.avatar,
-      styles.modifiers[size],
-      border === "light" && styles.modifiers.light,
-      border === "dark" && styles.modifiers.dark,
-      className,
-    )}
+    className={css(styles.avatar, styles.modifiers[size], className)}
     enableBackground="new 0 0 36 36"
     version="1.1"
     viewBox="0 0 36 36"

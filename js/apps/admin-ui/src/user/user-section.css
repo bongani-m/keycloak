@@ -1,10 +1,10 @@
 .keycloak__user-section__email-verified {
-  color: var(--pf-v5-global--danger-color--100);
+  color: var(--pf-v6-global--danger-color--100);
 }
 
 button.pf-v5-c-button.pf-m-primary.kc-join-group-button {
-  margin-left: var(--pf-v5-global--spacer--md);
-  margin-right: var(--pf-v5-global--spacer--xl);
+  margin-left: var(--pf-v6-global--spacer--md);
+  margin-right: var(--pf-v6-global--spacer--xl);
 }
 
 .kc-consents-chip-group .pf-v5-c-chip-group,
@@ -17,16 +17,16 @@ button#kc-join-groups-button {
 }
 
 .kc-join-group-modal-check {
-  margin-right: var(--pf-v5-global--spacer--sm);
+  margin-right: var(--pf-v6-global--spacer--sm);
 }
 
 .join-group-dialog-row-m-disabled {
   pointer-events: none;
-  color: var(--pf-v5-global--Color--200);
+  color: var(--pf-v6-global--Color--200);
 }
 
 .kc-who-will-appear-button {
-  margin-left: var(--pf-v5-global--spacer--sm);
+  margin-left: var(--pf-v6-global--spacer--sm);
 }
 
 .pf-v5-c-chip.kc-consents-chip::before {
@@ -47,7 +47,7 @@ button#kc-join-groups-button {
 }
 
 .kc-consents-chip > .pf-v5-c-chip__text {
-  font-size: var(--pf-v5-c-table--cell--FontSize);
+  font-size: var(--pf-v6-c-table--cell--FontSize);
   max-width: 100%;
 }
 
@@ -69,12 +69,12 @@ button#kc-join-groups-button {
   .pf-v5-c-chip.pf-m-overflow
   .pf-v5-c-chip__text::before {
   content: "";
-  margin-left: var(--pf-v5-global--spacer--sm);
+  margin-left: var(--pf-v6-global--spacer--sm);
 }
 
 .kc-search-users-text {
-  margin-left: var(--pf-v5-global--spacer--md);
-  color: var(--pf-v5-global--Color--300);
+  margin-left: var(--pf-v6-global--spacer--md);
+  color: var(--pf-v6-global--Color--300);
 }
 
 article.pf-v5-c-card.pf-m-flat.kc-linked-idps,
@@ -91,12 +91,12 @@ article.pf-v5-c-card.pf-m-flat.kc-available-idps > div > div > h1 {
 }
 
 .kc-available-idps-text {
-  color: var(--pf-v5-global--Color--200);
-  margin-top: var(--pf-v5-global--spacer--sm);
+  color: var(--pf-v6-global--Color--200);
+  margin-top: var(--pf-v6-global--spacer--sm);
 }
 
 .kc-linked-idps-text {
-  color: var(--pf-v5-global--Color--200);
+  color: var(--pf-v6-global--Color--200);
 }
 
 .kc-no-providers-text {
@@ -104,7 +104,7 @@ article.pf-v5-c-card.pf-m-flat.kc-available-idps > div > div > h1 {
 }
 
 .keycloak__user-credentials__reset-form {
-  --pf-v5-c-form--m-horizontal__group-label--md--GridColumnWidth: 13rem;
+  --pf-v6-c-form--m-horizontal__group-label--md--GridColumnWidth: 13rem;
 }
 
 .pf-v5-c-card__header.kc-form-panel__header {
@@ -116,9 +116,9 @@ article.pf-v5-c-card.pf-m-flat.kc-available-idps > div > div > h1 {
 }
 
 .pf-v5-c-content.kc-no-providers-text {
-  margin-top: calc(var(--pf-v5-global--spacer--2xl) - var(--pf-v5-global--spacer--sm));
-  margin-right: var(--pf-v5-global--spacer--md);
-  margin-bottom: var(--pf-v5-global--spacer--2xl);
+  margin-top: calc(var(--pf-v6-global--spacer--2xl) - var(--pf-v6-global--spacer--sm));
+  margin-right: var(--pf-v6-global--spacer--md);
+  margin-bottom: var(--pf-v6-global--spacer--2xl);
 }
 
 .kc-username-view-header {

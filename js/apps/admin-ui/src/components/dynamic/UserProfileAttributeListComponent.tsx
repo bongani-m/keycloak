@@ -50,7 +50,7 @@ export const UserProfileAttributeListComponent = ({
     <FormGroup
       label={t(label!)}
       isRequired={required}
-      labelIcon={<HelpItem helpText={t(helpText!)} fieldLabelId={label!} />}
+      labelHelp={<HelpItem helpText={t(helpText!)} fieldLabelId={label!} />}
       fieldId={convertedName!}
     >
       <KeySelect

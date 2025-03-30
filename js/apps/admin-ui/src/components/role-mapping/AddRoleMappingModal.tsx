@@ -9,10 +9,9 @@ import {
   DropdownItem,
   DropdownList,
   MenuToggle,
-  Modal,
-  ModalVariant,
   ToolbarItem,
 } from "@patternfly/react-core";
+import { Modal, ModalVariant } from "@patternfly/react-core/deprecated";
 import { FilterIcon } from "@patternfly/react-icons";
 import { cellWidth, TableText } from "@patternfly/react-table";
 import { useState } from "react";

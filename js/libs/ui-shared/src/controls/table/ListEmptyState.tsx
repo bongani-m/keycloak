@@ -1,12 +1,10 @@
 import { ComponentClass, MouseEventHandler, ReactNode } from "react";
 import {
   EmptyState,
-  EmptyStateIcon,
   EmptyStateBody,
   Button,
   ButtonVariant,
   EmptyStateActions,
-  EmptyStateHeader,
   EmptyStateFooter,
 } from "@patternfly/react-core";
 import type { SVGIconProps } from "@patternfly/react-icons/dist/js/createIcon";
@@ -42,13 +40,13 @@ export const ListEmptyState = ({
   isDisabled = false,
 }: ListEmptyStateProps) => {
   return (
-    <EmptyState data-testid="empty-state" variant="lg">
-      {hasIcon && isSearchVariant ? (
-        <EmptyStateIcon icon={SearchIcon} />
-      ) : (
-        hasIcon && <EmptyStateIcon icon={icon ? icon : PlusCircleIcon} />
-      )}
-      <EmptyStateHeader titleText={message} headingLevel="h1" />
+    <EmptyState
+      icon={hasIcon && isSearchVariant ? SearchIcon : (icon ?? PlusCircleIcon)}
+      headingLevel="h1"
+      titleText={message}
+      data-testid="empty-state"
+      variant="lg"
+    >
       <EmptyStateBody>{instructions}</EmptyStateBody>
       <EmptyStateFooter>
         {primaryActionText && (

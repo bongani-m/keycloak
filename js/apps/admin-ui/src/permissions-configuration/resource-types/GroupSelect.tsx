@@ -58,7 +58,7 @@ export const GroupSelect = ({
   return (
     <FormGroup
       label={t(label!)}
-      labelIcon={<HelpItem helpText={t(helpText!)} fieldLabelId="groups" />}
+      labelHelp={<HelpItem helpText={t(helpText!)} fieldLabelId="groups" />}
       fieldId="groups"
       isRequired={isRequired}
     >

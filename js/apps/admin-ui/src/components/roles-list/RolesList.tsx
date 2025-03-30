@@ -119,6 +119,8 @@ export const RolesList = ({
         toolbarItem={
           !isReadOnly && (
             <Button
+              size="sm"
+              style={{ marginTop: "0.25em" }}
               data-testid="create-role"
               component={(props) => <Link {...props} to={toCreate} />}
             >

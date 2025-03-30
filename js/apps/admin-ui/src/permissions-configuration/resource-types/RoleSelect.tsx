@@ -56,7 +56,7 @@ export const RoleSelect = ({ name }: RoleSelectorProps) => {
   return (
     <FormGroup
       label={tab !== "evaluation" ? t("roles") : t("role")}
-      labelIcon={
+      labelHelp={
         <HelpItem
           helpText={
             tab !== "evaluation" ? t("policyRolesHelp") : t("selectRole")

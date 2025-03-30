@@ -25,7 +25,7 @@ export const HelpItem = ({
             data-testid={`help-label-${fieldLabelId}`}
             aria-label={fieldLabelId}
             onClick={(e) => e.preventDefault()}
-            className="pf-v5-c-form__group-label-help"
+            className="pf-v6-c-form__group-label-help"
           >
             <Icon isInline={noVerticalAlign}>
               <HelpIcon />

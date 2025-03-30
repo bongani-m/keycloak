@@ -25,7 +25,7 @@ export const FormLabel = ({
   <FormGroup
     label={label || name}
     fieldId={name}
-    labelIcon={
+    labelHelp={
       labelIcon ? (
         <HelpItem helpText={labelIcon} fieldLabelId={name} />
       ) : undefined
