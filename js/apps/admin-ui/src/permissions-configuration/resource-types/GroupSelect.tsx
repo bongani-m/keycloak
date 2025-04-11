@@ -20,6 +20,9 @@ type GroupSelectProps = Omit<ComponentProps, "convertToName"> & {
   isRequired?: boolean;
 };
 
+const convertGroups = (groups: GroupRepresentation[]): string[] =>
+  groups.map(({ id }) => id!);
+
 export const GroupSelect = ({
   name,
   label,
@@ -66,14 +69,11 @@ export const GroupSelect = ({
         name={name!}
         control={control}
         defaultValue={defaultValue}
-        rules={
-          isRequired
-            ? {
-                validate: (value?: GroupRepresentation[]) =>
-                  value && value.length > 0,
-              }
-            : undefined
-        }
+        rules={{
+          validate: (value?: string[]) => {
+            return isRequired && value && value.length > 0;
+          },
+        }}
         render={({ field }) => (
           <>
             {open && (
@@ -86,7 +86,7 @@ export const GroupSelect = ({
                 onConfirm={(selectGroup) => {
                   field.onChange([
                     ...(field.value || []),
-                    ...(selectGroup || []).map(({ id }) => id),
+                    ...convertGroups(selectGroup || []),
                   ]);
                   setGroups([...groups, ...(selectGroup || [])]);
                   setOpen(false);
@@ -129,7 +129,9 @@ export const GroupSelect = ({
                     icon={<MinusCircleIcon />}
                     onClick={() => {
                       setValue(name!, [
-                        ...(groups || []).filter(({ id }) => id !== group.id),
+                        ...convertGroups(
+                          (groups || []).filter(({ id }) => id !== group.id),
+                        ),
                       ]);
                       setGroups([
                         ...groups.filter(({ id }) => id !== group.id),
@@ -142,7 +144,7 @@ export const GroupSelect = ({
           </Tbody>
         </Table>
       )}
-      {errors.groups && <FormErrorText message={t("requiredGroups")} />}
+      {errors[name!] && <FormErrorText message={t("requiredGroups")} />}
     </FormGroup>
   );
 };

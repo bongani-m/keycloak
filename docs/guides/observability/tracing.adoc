@@ -135,15 +135,18 @@ WARNING: For a production-ready environment, sampling should be properly set to 
 
 The used sampler can be changed via the `tracing-sampler-type` property.
 
+[[sampling]]
 === Default sampler
 The default sampler for {project_name} is `traceidratio`, which controls the rate of trace sampling based on a specified ratio configurable via the `tracing-sampler-ratio` property.
 
 ==== Trace ratio
 The default trace ratio is `1.0`, which means all traces are sampled - sent to the collector.
-The ratio is a floating number in the range `(0,1]`.
+The ratio is a floating number in the range `[0,1]`.
 For instance, when the ratio is `0.1`, only 10% of the traces are sampled.
 
 WARNING: For a production-ready environment, the trace ratio should be a smaller number to prevent the massive cost of trace store infrastructure and avoid performance overhead.
+
+TIP: The ratio can be set to `0.0` to disable sampling entirely _at runtime_.
 
 ==== Rationale
 

@@ -303,6 +303,9 @@ public class UsersResource {
                         session.users().getUserById(realm, search.substring(SEARCH_ID_PARAMETER.length()).trim());
                 if (userModel != null) {
                     userModels = Stream.of(userModel);
+                    if (AdminPermissionsSchema.SCHEMA.isAdminPermissionsEnabled(realm)) {
+                        userModels = userModels.filter(userPermissionEvaluator::canView);
+                    }
                 }
             } else {
                 Map<String, String> attributes = new HashMap<>();
@@ -502,7 +505,7 @@ public class UsersResource {
                     UserRepresentation userRep = briefRepresentationB
                             ? ModelToRepresentation.toBriefRepresentation(user)
                             : ModelToRepresentation.toRepresentation(session, realm, user);
-                    userRep.setAccess(usersEvaluator.getAccess(user));
+                    userRep.setAccess(usersEvaluator.getAccessForListing(user));
                     return userRep;
                 });
     }
