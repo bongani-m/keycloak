@@ -19,9 +19,11 @@ package org.keycloak.organization.authentication.authenticators.browser;
 
 import static org.keycloak.authentication.AuthenticatorUtil.isSSOAuthentication;
 import static org.keycloak.models.OrganizationDomainModel.ANY_DOMAIN;
+import static org.keycloak.models.utils.KeycloakModelUtils.findUserByNameOrEmail;
 import static org.keycloak.organization.utils.Organizations.getEmailDomain;
 import static org.keycloak.organization.utils.Organizations.isEnabledAndOrganizationsPresent;
 import static org.keycloak.organization.utils.Organizations.resolveHomeBroker;
+import static org.keycloak.utils.StringUtil.isNotBlank;
 
 import java.util.List;
 import java.util.Map;
@@ -33,7 +35,6 @@ import java.util.stream.Stream;
 import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.Response;
-import org.keycloak.OAuth2Constants;
 import org.keycloak.authentication.AuthenticationFlowContext;
 import org.keycloak.authentication.AuthenticationFlowError;
 import org.keycloak.authentication.authenticators.browser.IdentityProviderAuthenticator;
@@ -51,8 +52,8 @@ import org.keycloak.models.OrganizationModel;
 import org.keycloak.models.OrganizationModel.IdentityProviderRedirectMode;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
-import org.keycloak.models.UserProvider;
 import org.keycloak.models.utils.FormMessage;
+import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.organization.OrganizationProvider;
 import org.keycloak.organization.forms.login.freemarker.model.OrganizationAwareAuthenticationContextBean;
 import org.keycloak.organization.forms.login.freemarker.model.OrganizationAwareIdentityProviderBean;
@@ -63,6 +64,8 @@ import org.keycloak.protocol.oidc.OIDCLoginProtocol;
 import org.keycloak.sessions.AuthenticationSessionModel;
 
 public class OrganizationAuthenticator extends IdentityProviderAuthenticator {
+
+    private static final String LOGIN_HINT_ALREADY_HANDLED = "loginHintAlreadyHandled";
 
     private final KeycloakSession session;
 
@@ -77,6 +80,16 @@ public class OrganizationAuthenticator extends IdentityProviderAuthenticator {
         if (!isEnabledAndOrganizationsPresent(provider)) {
             context.attempted();
             return;
+        }
+
+        String loginHint = session.getContext().getAuthenticationSession().getClientNote(OIDCLoginProtocol.LOGIN_HINT_PARAM);
+
+        if (isNotBlank(loginHint) && !"true".equals(context.getAuthenticationSession().getClientNote(LOGIN_HINT_ALREADY_HANDLED))) {
+            UserModel user = resolveUser(context, loginHint);
+            context.setUser(user);
+
+            // set auth note to true to handle login_hint only once, we don't want to handle it again after a flow restart
+            context.getAuthenticationSession().setClientNote(LOGIN_HINT_ALREADY_HANDLED, "true");
         }
 
         OrganizationModel organization = Organizations.resolveOrganization(session);
@@ -280,9 +293,8 @@ public class OrganizationAuthenticator extends IdentityProviderAuthenticator {
             return null;
         }
 
-        UserProvider users = session.users();
         RealmModel realm = session.getContext().getRealm();
-        UserModel user = Optional.ofNullable(users.getUserByEmail(realm, username)).orElseGet(() -> users.getUserByUsername(realm, username));
+        UserModel user = findUserByNameOrEmail(session, realm, username);
 
         // make sure the organization will be resolved based on the username provided
         clearAuthenticationSession(context);

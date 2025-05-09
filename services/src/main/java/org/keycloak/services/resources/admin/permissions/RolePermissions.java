@@ -28,7 +28,6 @@ import org.keycloak.authorization.store.PolicyStore;
 import org.keycloak.authorization.store.ResourceStore;
 import org.keycloak.models.AdminRoles;
 import org.keycloak.models.ClientModel;
-import org.keycloak.models.ImpersonationConstants;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.RoleContainerModel;
@@ -150,7 +149,7 @@ class RolePermissions implements RolePermissionEvaluator, RolePermissionManageme
         return root.resourceServer(client);
     }
 
-    boolean checkAdminRoles(RoleModel role) {
+    private boolean checkAdminRoles(RoleModel role) {
         if (AdminRoles.ALL_ROLES.contains(role.getName())) {
             if (root.admin().hasRole(role)) return true;
 
@@ -183,13 +182,15 @@ class RolePermissions implements RolePermissionEvaluator, RolePermissionManageme
                 } else if (role.getName().equals(AdminRoles.QUERY_GROUPS)) {
                     return true;
                 } else if (role.getName().equals(AdminRoles.MANAGE_AUTHORIZATION)) {
-                    if (!root.realm().canManageAuthorization()) {
+                    ResourceServer resourceServer = getResourceServer(role);
+                    if (!root.realm().canManageAuthorization(resourceServer)) {
                         return adminConflictMessage(role);
                     } else {
                         return true;
                     }
                 } else if (role.getName().equals(AdminRoles.VIEW_AUTHORIZATION)) {
-                    if (!root.realm().canViewAuthorization()) {
+                    ResourceServer resourceServer = getResourceServer(role);
+                    if (!root.realm().canViewAuthorization(resourceServer)) {
                         return adminConflictMessage(role);
                     } else {
                         return true;
@@ -242,7 +243,7 @@ class RolePermissions implements RolePermissionEvaluator, RolePermissionManageme
                     } else {
                         return true;
                     }
-                } else if (role.getName().equals(ImpersonationConstants.IMPERSONATION_ROLE)) {
+                } else if (role.getName().equals(AdminRoles.IMPERSONATION)) {
                     if (!root.users().canImpersonate()) {
                         return adminConflictMessage(role);
                     } else {
@@ -544,7 +545,7 @@ class RolePermissions implements RolePermissionEvaluator, RolePermissionManageme
     }
 
     @Override
-    public Set<String> getRoleIdsWithViewPermission(String scope) {
+    public Set<String> getRoleIdsByScope(String scope) {
         if (!root.isAdminSameRealm()) {
             return Collections.emptySet();
         }
@@ -657,5 +658,14 @@ class RolePermissions implements RolePermissionEvaluator, RolePermissionManageme
 
     private static String getRoleResourceName(RoleModel role) {
         return "role.resource." + role.getId();
+    }
+
+    private ResourceServer getResourceServer(RoleModel role) {
+        ResourceServer resourceServer = null;
+        if (role.isClientRole()) {
+            RoleContainerModel container = role.getContainer();
+            resourceServer = session.getProvider(AuthorizationProvider.class).getStoreFactory().getResourceServerStore().findById(container.getId());
+        }
+        return resourceServer;
     }
 }

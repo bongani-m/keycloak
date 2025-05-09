@@ -26,6 +26,7 @@ import static org.keycloak.quarkus.runtime.Environment.isRebuilt;
 import static org.keycloak.quarkus.runtime.cli.OptionRenderer.decorateDuplicitOptionName;
 import static org.keycloak.quarkus.runtime.cli.command.AbstractStartCommand.OPTIMIZED_BUILD_OPTION_LONG;
 import static org.keycloak.quarkus.runtime.configuration.ConfigArgsConfigSource.parseConfigArgs;
+import static org.keycloak.quarkus.runtime.configuration.Configuration.isUserModifiable;
 import static org.keycloak.quarkus.runtime.configuration.MicroProfileConfigProvider.NS_KEYCLOAK_PREFIX;
 import static org.keycloak.quarkus.runtime.configuration.mappers.PropertyMappers.maskValue;
 import static picocli.CommandLine.Model.UsageMessageSpec.SECTION_KEY_COMMAND_LIST;
@@ -64,7 +65,6 @@ import org.keycloak.quarkus.runtime.configuration.ConfigArgsConfigSource;
 import org.keycloak.quarkus.runtime.configuration.Configuration;
 import org.keycloak.quarkus.runtime.configuration.DisabledMappersInterceptor;
 import org.keycloak.quarkus.runtime.configuration.KcUnmatchedArgumentException;
-import org.keycloak.quarkus.runtime.configuration.KeycloakPropertiesConfigSource;
 import org.keycloak.quarkus.runtime.configuration.MicroProfileConfigProvider;
 import org.keycloak.quarkus.runtime.configuration.PropertyMappingInterceptor;
 import org.keycloak.quarkus.runtime.configuration.QuarkusPropertiesConfigSource;
@@ -200,10 +200,7 @@ public class Picocli {
     }
 
     public void exit(int exitCode) {
-        if (exitCode != CommandLine.ExitCode.OK && (!Environment.isTestLaunchMode() || isRebuildCheck())) {
-            // hard exit wanted, as build failed and no subsequent command should be executed. no quarkus involved.
-            System.exit(exitCode);
-        }
+        System.exit(exitCode);
     }
 
     private int runReAugmentationIfNeeded(List<String> cliArgs, CommandLine cmd, CommandLine currentCommand) {
@@ -356,9 +353,13 @@ public class Picocli {
             // we have to ignore things like the profile properties because the commands set them at runtime
             checkChangesInBuildOptions((key, oldValue, newValue) -> {
                 if (key.startsWith(KC_PROVIDER_FILE_PREFIX)) {
-                    throw new PropertyException("A provider JAR was updated since the last build, please rebuild for this to be fully utilized.");
+                    if (timestampChanged(oldValue, newValue)) {
+                        throw new PropertyException("A provider JAR was updated since the last build, please rebuild for this to be fully utilized.");
+                    }
                 } else if (newValue != null && !isIgnoredPersistedOption(key)
-                        && isUserModifiable(Configuration.getConfigValue(key))) {
+                        && isUserModifiable(Configuration.getConfigValue(key))
+                        // let quarkus handle this - it's unsupported for direct usage in keycloak
+                        && !key.startsWith(MicroProfileConfigProvider.NS_QUARKUS_PREFIX)) {
                     ignoredBuildTime.add(key);
                 }
             });
@@ -463,6 +464,16 @@ public class Picocli {
         }
     }
 
+    static boolean timestampChanged(String oldValue, String newValue) {
+        if (newValue != null && oldValue != null) {
+            long longNewValue = Long.valueOf(newValue);
+            long longOldValue = Long.valueOf(oldValue);
+            // docker commonly truncates to the second at runtime, so we'll allow that special case
+            return ((longNewValue / 1000) * 1000) != longNewValue || ((longOldValue / 1000) * 1000) != longNewValue;
+        }
+        return true;
+    }
+
     private void validateProperty(AbstractCommand abstractCommand, IncludeOptions options,
             final List<String> ignoredRunTime, final Set<String> disabledBuildTime, final Set<String> disabledRunTime,
             final Set<String> deprecatedInUse, final Set<String> missingOption,
@@ -508,12 +519,6 @@ public class Picocli {
         mapper.validate(configValue);
 
         mapper.getDeprecatedMetadata().ifPresent(metadata -> handleDeprecated(deprecatedInUse, mapper, configValueStr, metadata));
-    }
-
-    private static boolean isUserModifiable(ConfigValue configValue) {
-        // This could check as low as SysPropConfigSource DEFAULT_ORDINAL, which is 400
-        // for now we won't validate these as it's not expected for the user to specify options via system properties
-        return configValue.getConfigSourceOrdinal() >= KeycloakPropertiesConfigSource.PROPERTIES_FILE_ORDINAL;
     }
 
     private static void checkRuntimeSpiOptions(String key, final List<String> ignoredRunTime) {
@@ -985,7 +990,7 @@ public class Picocli {
     }
 
     public void start() {
-        KeycloakMain.start(errorHandler, getErrWriter());
+        KeycloakMain.start(this, errorHandler);
     }
 
     public void build() throws Throwable {

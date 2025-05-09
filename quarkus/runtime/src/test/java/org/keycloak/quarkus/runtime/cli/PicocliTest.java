@@ -26,15 +26,21 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Stream;
 
+import org.apache.commons.io.FileUtils;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.keycloak.config.LoggingOptions;
 import org.keycloak.quarkus.runtime.Environment;
 import org.keycloak.quarkus.runtime.KeycloakMain;
 import org.keycloak.quarkus.runtime.configuration.ConfigArgsConfigSource;
@@ -314,7 +320,7 @@ public class PicocliTest extends AbstractConfigurationTest {
         NonRunningPicocli nonRunningPicocli = pseudoLaunch("start-dev", "--hostname=name", "--http-enabled=true");
         assertEquals(CommandLine.ExitCode.OK, nonRunningPicocli.exitCode);
         assertTrue(nonRunningPicocli.reaug);
-        assertEquals("dev", nonRunningPicocli.buildProps.getProperty(org.keycloak.common.util.Environment.PROFILE));;
+        assertEquals("dev", nonRunningPicocli.buildProps.getProperty(org.keycloak.common.util.Environment.PROFILE));
     }
 
     /**
@@ -393,7 +399,7 @@ public class PicocliTest extends AbstractConfigurationTest {
         NonRunningPicocli nonRunningPicocli = pseudoLaunch("export", "--db=dev-file", "--file=file");
         assertEquals(CommandLine.ExitCode.OK, nonRunningPicocli.exitCode);
         assertTrue(nonRunningPicocli.reaug);
-        assertEquals("prod", nonRunningPicocli.buildProps.getProperty(org.keycloak.common.util.Environment.PROFILE));;
+        assertEquals("prod", nonRunningPicocli.buildProps.getProperty(org.keycloak.common.util.Environment.PROFILE));
     }
 
     @Test
@@ -592,5 +598,119 @@ public class PicocliTest extends AbstractConfigurationTest {
         assertThat(nonRunningPicocli.getOutString(), containsString("kc.event-metrics-user-enabled"));
         // second class kc form should not
         assertThat(nonRunningPicocli.getOutString(), not(containsString("kc.spi-events-listener-micrometer-user-event-metrics-enabled")));
+    }
+
+    @Test
+    public void logAsyncDisabledParent() {
+        NonRunningPicocli nonRunningPicocli = pseudoLaunch("start-dev", "--log=file", "--log-console-async=true");
+        assertEquals(CommandLine.ExitCode.USAGE, nonRunningPicocli.exitCode);
+        assertThat(nonRunningPicocli.getErrString(), containsString("Disabled option: '--log-console-async'. Available only when Console log handler is activated"));
+
+        nonRunningPicocli = pseudoLaunch("start-dev", "--log=console", "--log-file-async=true");
+        assertEquals(CommandLine.ExitCode.USAGE, nonRunningPicocli.exitCode);
+        assertThat(nonRunningPicocli.getErrString(), containsString("Disabled option: '--log-file-async'. Available only when File log handler is activated"));
+
+        nonRunningPicocli = pseudoLaunch("start-dev", "--log=file", "--log-syslog-async=true");
+        assertEquals(CommandLine.ExitCode.USAGE, nonRunningPicocli.exitCode);
+        assertThat(nonRunningPicocli.getErrString(), containsString("Disabled option: '--log-syslog-async'. Available only when Syslog is activated"));
+    }
+
+    @Test
+    public void logAsyncGlobal() {
+        NonRunningPicocli nonRunningPicocli = pseudoLaunch("start-dev", "--log-async=true", "--log-console-async=false", "--log-console-async-queue-length=222");
+        assertEquals(CommandLine.ExitCode.USAGE, nonRunningPicocli.exitCode);
+        assertThat(nonRunningPicocli.getErrString(), containsString("Disabled option: '--log-console-async-queue-length'. Available only when Console log handler is activated"));
+        onAfter();
+
+        nonRunningPicocli = pseudoLaunch("start-dev", "--log-async=true", "--log-console-async-queue-length=222");
+        assertEquals(CommandLine.ExitCode.OK, nonRunningPicocli.exitCode);
+
+        onAfter();
+
+        nonRunningPicocli = pseudoLaunch("start-dev", "--log=console,file", "--log-async=true", "--log-console-async=false", "--log-console-async-queue-length=222");
+        assertEquals(CommandLine.ExitCode.USAGE, nonRunningPicocli.exitCode);
+        assertThat(nonRunningPicocli.getErrString(), containsString("Disabled option: '--log-console-async-queue-length'. Available only when Console log handler is activated"));
+        onAfter();
+
+        nonRunningPicocli = pseudoLaunch("start-dev", "--log=console,file", "--log-async=true", "--log-console-async=false", "--log-file-async-queue-length=222");
+        assertEquals(CommandLine.ExitCode.OK, nonRunningPicocli.exitCode);
+    }
+
+    @Test
+    public void logAsyncConsoleDisabledOptions() {
+        assertLogAsyncHandlerDisabledOptions(LoggingOptions.Handler.file, LoggingOptions.Handler.console, "Console log handler");
+    }
+
+    @Test
+    public void logAsyncFileDisabledOptions() {
+        assertLogAsyncHandlerDisabledOptions(LoggingOptions.Handler.console, LoggingOptions.Handler.file, "File log handler");
+    }
+
+    @Test
+    public void logAsyncSyslogDisabledOptions() {
+        assertLogAsyncHandlerDisabledOptions(LoggingOptions.Handler.console, LoggingOptions.Handler.syslog, "Syslog");
+    }
+
+    private void assertLogAsyncHandlerDisabledOptions(LoggingOptions.Handler logHandler, LoggingOptions.Handler logHandlerOptions, String logHandlerFullName) {
+        var logHandlerName = logHandler.toString();
+        var logHandlerOptionsName = logHandlerOptions.toString();
+
+        NonRunningPicocli nonRunningPicocli = pseudoLaunch("start-dev", "--log=%s".formatted(logHandlerName), "--log-%s-async-queue-length=invalid".formatted(logHandlerOptionsName));
+        assertEquals(CommandLine.ExitCode.USAGE, nonRunningPicocli.exitCode);
+        assertThat(nonRunningPicocli.getErrString(), containsString("Invalid value for option '--log-%s-async-queue-length': 'invalid' is not an int".formatted(logHandlerOptionsName)));
+
+        nonRunningPicocli = pseudoLaunch("start-dev", "--log=%s".formatted(logHandlerName), "--log-%s-async-queue-length=768".formatted(logHandlerOptionsName));
+        assertEquals(CommandLine.ExitCode.USAGE, nonRunningPicocli.exitCode);
+        assertThat(nonRunningPicocli.getErrString(), containsString("Disabled option: '--log-%s-async-queue-length'. Available only when %s is activated and asynchronous logging is enabled".formatted(logHandlerOptionsName, logHandlerFullName)));
+
+    }
+
+    @Test
+    public void logAsyncConsoleInvalidValues() {
+        assertLogAsyncHandlerInvalidValues(LoggingOptions.Handler.console);
+    }
+
+    @Test
+    public void logAsyncFileInvalidValues() {
+        assertLogAsyncHandlerInvalidValues(LoggingOptions.Handler.file);
+    }
+
+    @Test
+    public void logAsyncSyslogInvalidValues() {
+        assertLogAsyncHandlerInvalidValues(LoggingOptions.Handler.syslog);
+    }
+
+    @Test
+    public void timestampChanged() {
+        assertTrue(Picocli.timestampChanged("12345", null));
+        assertTrue(Picocli.timestampChanged("12345", "12346"));
+        assertTrue(Picocli.timestampChanged("12000", "12346"));
+        // new is truncated - should not be a change
+        assertFalse(Picocli.timestampChanged("12345", "12000"));
+    }
+
+    @Test
+    public void quarkusRuntimeChangeNoError() throws IOException {
+        Path conf = Paths.get("src/test/resources/");
+        Path tmp = Paths.get("target/home-tmp");
+        FileUtils.copyDirectory(conf.toFile(), tmp.toFile());
+        Files.delete(tmp.resolve("conf/quarkus.properties"));
+        Environment.setHomeDir(tmp);
+        try {
+            build("build", "--db=dev-file");
+        } finally {
+            Environment.setHomeDir(conf);
+        }
+
+        var nonRunningPicocli = pseudoLaunch("start", "--optimized", "--http-enabled=true", "--hostname=foo");
+        assertEquals(CommandLine.ExitCode.OK, nonRunningPicocli.exitCode);
+    }
+
+    protected void assertLogAsyncHandlerInvalidValues(LoggingOptions.Handler handler) {
+        var handlerName = handler.toString();
+
+        var nonRunningPicocli = pseudoLaunch("start-dev", "--log=%s".formatted(handlerName), "--log-%s-async=true".formatted(handlerName), "--log-%s-async-queue-length=invalid".formatted(handlerName));
+        assertEquals(CommandLine.ExitCode.USAGE, nonRunningPicocli.exitCode);
+        assertThat(nonRunningPicocli.getErrString(), containsString("Invalid value for option '--log-%s-async-queue-length': 'invalid' is not an int".formatted(handlerName)));
     }
 }

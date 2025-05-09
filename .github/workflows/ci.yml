@@ -37,7 +37,9 @@ jobs:
       ci-sssd: ${{ steps.conditional.outputs.ci-sssd }}
       ci-webauthn: ${{ steps.conditional.outputs.ci-webauthn }}
       ci-aurora: ${{ steps.auroradb-tests.outputs.run-aurora-tests }}
-
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
 
@@ -328,7 +330,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         dist: [temurin]
-        version: [17]
+        version: [17, 24]
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
@@ -687,7 +689,7 @@ jobs:
 
       - name: Run new base tests
         run: |
-          KC_TEST_DATABASE=${{ matrix.db }} KC_TEST_DATABASE_REUSE=true TESTCONTAINERS_REUSE_ENABLE=true ./mvnw package -f tests/pom.xml -Dtest=DatabaseTestSuite
+          KC_TEST_DATABASE=${{ matrix.db }} KC_TEST_DATABASE_REUSE=true TESTCONTAINERS_REUSE_ENABLE=true ./mvnw package -f tests/pom.xml -Dtest=DatabaseTestSuite -Dkeycloak.distribution.start.timeout=360
 
       - name: Database container port
         run: |
@@ -705,6 +707,7 @@ jobs:
             -Ddocker.database.skip=true \
             -Ddocker.database.port=$DATABASE_PORT \
             -Ddocker.container.testdb.ip=localhost \
+            -Dkeycloak.distribution.start.timeout=360 \
             -pl testsuite/integration-arquillian/tests/base 2>&1 | misc/log/trimmer.sh
 
       - name: Run cluster JDBC_PING2 UDP smoke test
@@ -911,6 +914,9 @@ jobs:
         name: Integration test setup
         uses: ./.github/actions/integration-test-setup
 
+      - uses: ./.github/actions/install-chrome
+        if: matrix.browser == 'chrome'
+
       - name: Run Forms IT
         run: |
           TESTS=`testsuite/integration-arquillian/tests/base/testsuites/suite.sh forms`
@@ -952,6 +958,9 @@ jobs:
       - id: integration-test-setup
         name: Integration test setup
         uses: ./.github/actions/integration-test-setup
+
+      - uses: ./.github/actions/install-chrome
+        if: matrix.browser == 'chrome'
 
       - name: Run WebAuthn IT
         run: |
