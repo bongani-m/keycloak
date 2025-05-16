@@ -297,17 +297,16 @@ public abstract class DefaultKeycloakContext implements KeycloakContext {
             String issuer = jwt.getIssuer();
             String realmName = issuer.substring(issuer.lastIndexOf("/") + 1);
             RealmModel realm = session.realms().getRealmByName(realmName);
-            user = session.users().getUserById(realm, jwt.getSubject());
+
+            if (realm != null) {
+                user = session.users().getUserById(realm, jwt.getSubject());
+            }
         }
 
         if (user == null) {
             user = userSession == null ? null : userSession.getUser();
         }
 
-        if (user != null) {
-            return user;
-        }
-
-        throw new IllegalStateException("Could not resolve subject");
+        return user;
     }
 }

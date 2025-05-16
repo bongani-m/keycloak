@@ -95,6 +95,8 @@ public final class Constants {
      */
     public static final String KC_ACTION_ENFORCED = "kc_action_enforced";
     public static final int KC_ACTION_MAX_AGE = 300;
+    public static final String MAX_AUTH_AGE_KEY = "max_auth_age";
+
 
     public static final String IS_AIA_REQUEST = "IS_AIA_REQUEST";
     public static final String AIA_SILENT_CANCEL = "silent_cancel";
@@ -185,9 +187,6 @@ public final class Constants {
 
     //attribute name used to mark a client as realm client
     public static final String REALM_CLIENT = "realm_client";
-
-    //attribute name used to mark a temporary admin user/service account as temporary
-    public static final String IS_TEMP_ADMIN_ATTR_NAME = "is_temporary_admin";
 
     public static final String ADMIN_PERMISSIONS_CLIENT_ID = "admin-permissions";
 
