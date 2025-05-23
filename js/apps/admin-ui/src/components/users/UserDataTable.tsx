@@ -65,7 +65,7 @@ const UserDetailLink = (user: BruteUser) => {
         {user.username}
         <StatusRow user={user} />
       </Link>
-      {user.attributes?.["is_temporary_admin"][0] === "true" && (
+      {user.attributes?.["is_temporary_admin"]?.[0] === "true" && (
         <Tooltip content={t("temporaryAdmin")}>
           <WarningTriangleIcon
             className="pf-v5-u-ml-sm"
@@ -384,20 +384,16 @@ export function UserDataTable() {
         }
         toolbarItem={toolbar()}
         subToolbar={subtoolbar()}
-        actionResolver={(rowData: IRowData) => {
-          const user: UserRepresentation = rowData.data;
-          if (!user.access?.manage) return [];
-
-          return [
-            {
-              title: t("delete"),
-              onClick: () => {
-                setSelectedRows([user]);
-                toggleDeleteDialog();
-              },
+        actionResolver={(rowData: IRowData) => [
+          {
+            title: t("delete"),
+            onClick: () => {
+              setSelectedRows([rowData.data]);
+              toggleDeleteDialog();
             },
-          ];
-        }}
+          },
+        ]}
+        isRowDisabled={(user: UserRepresentation) => !user.access?.manage}
         columns={[
           {
             name: "username",

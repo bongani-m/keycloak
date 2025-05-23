@@ -18,7 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.keycloak.admin.client.resource.ScopePermissionResource;
 import org.keycloak.admin.client.resource.ScopePermissionsResource;
-import org.keycloak.authorization.AdminPermissionsSchema;
+import org.keycloak.authorization.fgap.AdminPermissionsSchema;
 import org.keycloak.representations.idm.ClientRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.keycloak.representations.idm.authorization.ClientPolicyRepresentation;
@@ -31,7 +31,7 @@ import org.keycloak.testframework.annotations.KeycloakIntegrationTest;
 import org.keycloak.testframework.injection.LifeCycle;
 import org.keycloak.testframework.realm.ManagedClient;
 
-@KeycloakIntegrationTest(config = KeycloakAdminPermissionsServerConfig.class)
+@KeycloakIntegrationTest
 public class ClientResourceTypePermissionTest extends AbstractPermissionTest {
 
     @InjectClient(ref = "testClient")
