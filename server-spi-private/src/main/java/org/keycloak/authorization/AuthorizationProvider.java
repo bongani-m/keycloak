@@ -26,6 +26,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.keycloak.authorization.fgap.AdminPermissionsSchema;
 import org.keycloak.authorization.model.PermissionTicket;
 import org.keycloak.authorization.model.Policy;
 import org.keycloak.authorization.model.Resource;
@@ -444,6 +445,11 @@ public final class AuthorizationProvider implements Provider {
             @Override
             public Stream<Policy> findDependentPolicies(ResourceServer resourceServer, String resourceType, String associatedPolicyType, String configKey, String configValue) {
                 return policyStore.findDependentPolicies(resourceServer, resourceType, associatedPolicyType, configKey, configValue);
+            }
+
+            @Override
+            public Stream<Policy> findDependentPolicies(ResourceServer resourceServer, String resourceType, String associatedPolicyType, String configKey, List<String> configValues) {
+                return policyStore.findDependentPolicies(resourceServer, resourceType, associatedPolicyType, configKey, configValues);
             }
 
             @Override
