@@ -57,6 +57,8 @@ import org.keycloak.models.UserModel;
 import org.keycloak.models.UserSessionModel;
 import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.protocol.oidc.OIDCLoginProtocol;
+import org.keycloak.protocol.oidc.TokenExchangeContext;
+import org.keycloak.protocol.oidc.TokenExchangeProvider;
 import org.keycloak.protocol.oidc.endpoints.AuthorizationEndpoint;
 import org.keycloak.protocol.oidc.utils.PkceUtils;
 import org.keycloak.representations.AccessTokenResponse;
@@ -526,11 +528,11 @@ public abstract class AbstractOAuth2IdentityProvider<C extends OAuth2IdentityPro
                     if (error.equals(ACCESS_DENIED)) {
                         return callback.cancelled(providerConfig);
                     } else if (error.equals(OAuthErrorException.LOGIN_REQUIRED) || error.equals(OAuthErrorException.INTERACTION_REQUIRED)) {
-                        return callback.error(error);
+                        return callback.error(providerConfig, error);
                     } else if (error.equals(OAuthErrorException.TEMPORARILY_UNAVAILABLE) && Constants.AUTHENTICATION_EXPIRED_MESSAGE.equals(errorDescription)) {
                         return callback.retryLogin(this.provider, authSession);
                     } else {
-                        return callback.error(Messages.IDENTITY_PROVIDER_UNEXPECTED_ERROR);
+                        return callback.error(providerConfig, Messages.IDENTITY_PROVIDER_UNEXPECTED_ERROR);
                     }
                 }
 
@@ -705,19 +707,51 @@ public abstract class AbstractOAuth2IdentityProvider<C extends OAuth2IdentityPro
         return requestedIssuer.equals(getConfig().getAlias());
     }
 
-
-    final public BrokeredIdentityContext exchangeExternal(EventBuilder event, MultivaluedMap<String, String> params) {
+    @Override
+    final public BrokeredIdentityContext exchangeExternal(TokenExchangeProvider tokenExchangeProvider, TokenExchangeContext tokenExchangeContext) {
         if (!supportsExternalExchange()) return null;
-        BrokeredIdentityContext context = exchangeExternalImpl(event, params);
+
+        BrokeredIdentityContext context;
+        int teVersion = tokenExchangeProvider.getVersion();
+        switch (teVersion) {
+            case 1:
+                context = exchangeExternalTokenV1Impl(tokenExchangeContext.getEvent(), tokenExchangeContext.getFormParams());
+                break;
+            case 2:
+                context = exchangeExternalTokenV2Impl(tokenExchangeContext);
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported token exchange version " + teVersion);
+        }
+
         if (context != null) {
             context.setIdp(this);
         }
         return context;
     }
 
-    protected BrokeredIdentityContext exchangeExternalImpl(EventBuilder event, MultivaluedMap<String, String> params) {
+    /**
+     * Usage with token-exchange V1
+     *
+     * @param event event builder
+     * @param params parameters of the token-exchange request
+     * @return brokered identity context with the details about user from the IDP
+     */
+    protected BrokeredIdentityContext exchangeExternalTokenV1Impl(EventBuilder event, MultivaluedMap<String, String> params) {
         return exchangeExternalUserInfoValidationOnly(event, params);
 
+    }
+
+    /**
+     * Usage with external-internal token-exchange v2.
+     *
+     * @param tokenExchangeContext data about token-exchange request
+     * @return brokered identity context with the details about user from the IDP
+     */
+    protected BrokeredIdentityContext exchangeExternalTokenV2Impl(TokenExchangeContext tokenExchangeContext) {
+        // Needs to be properly implemented for every provider to make sure it verifies external-token in appropriate way to validate user and also if the external-token
+        // was issued to the proper audience
+        throw new UnsupportedOperationException("Not yet supported to verify the external token of the identity provider " + getConfig().getAlias());
     }
 
     protected BrokeredIdentityContext exchangeExternalUserInfoValidationOnly(EventBuilder event, MultivaluedMap<String, String> params) {
