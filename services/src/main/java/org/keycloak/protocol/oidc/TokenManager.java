@@ -195,14 +195,8 @@ public class TokenManager {
         ClientModel client = session.getContext().getClient();
         AuthenticatedClientSessionModel clientSession = userSession.getAuthenticatedClientSessionByClient(client.getId());
 
-        // Can theoretically happen in cross-dc environment. Try to see if userSession with our client is available in remoteCache
         if (clientSession == null) {
-            userSession = session.sessions().getUserSessionIfClientExists(realm, userSession.getId(), offline, client.getId());
-            if (userSession != null) {
-                clientSession = userSession.getAuthenticatedClientSessionByClient(client.getId());
-            } else {
-                throw new OAuthErrorException(OAuthErrorException.INVALID_GRANT, "Session doesn't have required client", "Session doesn't have required client");
-            }
+            throw new OAuthErrorException(OAuthErrorException.INVALID_GRANT, "Session doesn't have required client", "Session doesn't have required client");
         }
 
         if (!AuthenticationManager.isClientSessionValid(realm, client, userSession, clientSession)) {
@@ -643,6 +637,10 @@ public class TokenManager {
             return clientScopes;
         }
 
+        // skip scopes that were explicitly requested using the dynamic scope format
+        // we don't want dynamic and default client scopes duplicated
+        clientScopes = clientScopes.filter(scope -> !scopeParam.contains(scope.getName() + ClientScopeModel.VALUE_SEPARATOR));
+
         Map<String, ClientScopeModel> allOptionalScopes = client.getClientScopes(false);
 
         // Add optional client scopes requested by scope parameter
@@ -1039,8 +1037,11 @@ public class TokenManager {
             expiration = Time.currentTimeMillis() + TimeUnit.SECONDS.toMillis(tokenLifespan);
         }
 
+        final boolean offline = userSession.isOffline() || offlineTokenRequested ||
+                (userSession.getPersistenceState() == UserSessionModel.SessionPersistenceState.TRANSIENT &&
+                Constants.CREATED_FROM_PERSISTENT_OFFLINE.equals(userSession.getNote(Constants.CREATED_FROM_PERSISTENT)));
         long sessionExpires = SessionExpirationUtils.calculateClientSessionMaxLifespanTimestamp(
-                userSession.isOffline() || offlineTokenRequested, userSession.isRememberMe(),
+                offline, userSession.isRememberMe(),
                 TimeUnit.SECONDS.toMillis(clientSession.getStarted()), TimeUnit.SECONDS.toMillis(userSession.getStarted()),
                 realm, client);
         expiration = sessionExpires > 0? Math.min(expiration, sessionExpires) : expiration;
@@ -1173,17 +1174,11 @@ public class TokenManager {
             UserSessionModel userSession = clientSession.getUserSession();
             userSession.setLastSessionRefresh(refreshToken.getIat().intValue());
             if (offlineTokenRequested) {
-                UserSessionManager sessionManager = new UserSessionManager(session);
-                if (!sessionManager.isOfflineTokenAllowed(clientSessionCtx)) {
-                    event.detail(Details.REASON, "Offline tokens not allowed for the user or client");
-                    event.error(Errors.NOT_ALLOWED);
-                    throw new ErrorResponseException(Errors.NOT_ALLOWED, "Offline tokens not allowed for the user or client", Response.Status.BAD_REQUEST);
-                }
                 refreshToken.type(TokenUtil.TOKEN_TYPE_OFFLINE);
                 if (realm.isOfflineSessionMaxLifespanEnabled()) {
                     refreshToken.exp(getExpiration(true));
                 }
-                sessionManager.createOrUpdateOfflineSession(clientSessionCtx.getClientSession(), userSession);
+                createOrUpdateOfflineSession();
             } else {
                 refreshToken.exp(getExpiration(false));
             }
@@ -1193,6 +1188,16 @@ public class TokenManager {
                         .map(ClientModel::getClientId)
                         .collect(Collectors.toSet()));
             }
+        }
+
+        public void createOrUpdateOfflineSession() {
+            UserSessionManager sessionManager = new UserSessionManager(session);
+            if (!sessionManager.isOfflineTokenAllowed(clientSessionCtx)) {
+                event.detail(Details.REASON, "Offline tokens not allowed for the user or client");
+                event.error(Errors.NOT_ALLOWED);
+                throw new ErrorResponseException(Errors.NOT_ALLOWED, "Offline tokens not allowed for the user or client", Response.Status.BAD_REQUEST);
+            }
+            sessionManager.createOrUpdateOfflineSession(clientSessionCtx.getClientSession(), userSession);
         }
 
        /**
