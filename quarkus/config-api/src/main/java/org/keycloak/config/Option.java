@@ -1,5 +1,7 @@
 package org.keycloak.config;
 
+import com.google.common.base.CaseFormat;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -82,19 +84,24 @@ public class Option<T> {
     }
 
     public Option<T> withRuntimeSpecificDefault(T defaultValue) {
-        return new Option<T>(
-            this.type,
-            this.key,
-            this.category,
-            this.hidden,
-            this.buildTime,
-            this.description,
-            Optional.ofNullable(defaultValue),
-            this.expectedValues,
-            this.strictExpectedValues,
-            this.caseInsensitiveExpectedValues,
-            this.deprecatedMetadata
-        );
+        return toBuilder().defaultValue(defaultValue).build();
+    }
+
+    public OptionBuilder<T> toBuilder() {
+        var builder = new OptionBuilder<>(key, type)
+                .category(category)
+                .buildTime(buildTime)
+                .description(description)
+                .defaultValue(defaultValue)
+                .expectedValues(expectedValues)
+                .strictExpectedValues(strictExpectedValues)
+                .caseInsensitiveExpectedValues(caseInsensitiveExpectedValues)
+                .deprecatedMetadata(deprecatedMetadata);
+
+        if (hidden) {
+            builder.hidden();
+        }
+        return builder;
     }
 
     private static String getDescriptionByCategorySupportLevel(String description, OptionCategory category) {
@@ -122,5 +129,13 @@ public class Option<T> {
             return ((List<?>) value).stream().map(String::valueOf).collect(Collectors.joining(","));
         }
         return String.valueOf(value);
+    }
+
+    /**
+     * Transform enum values from upper underscore to lower hyphen
+     * Transform enum type HAS_SOMETHING -> has-something
+     */
+    public static String transformEnumValue(String value) {
+        return CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.LOWER_HYPHEN, value);
     }
 }
