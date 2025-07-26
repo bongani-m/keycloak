@@ -51,8 +51,24 @@ public final class Configuration {
         return getOptionalBooleanValue(NS_KEYCLOAK_PREFIX + option.getKey()).orElse(false);
     }
 
+    public static boolean isUserModifiable(ConfigValue configValue) {
+        // This could check as low as SysPropConfigSource DEFAULT_ORDINAL, which is 400
+        // for now we won't validate these as it's not expected for the user to specify options via system properties
+        return configValue.getConfigSourceOrdinal() >= KeycloakPropertiesConfigSource.PROPERTIES_FILE_ORDINAL;
+    }
+
+    public static boolean isSet(Option<?> option) {
+        return Optional.ofNullable(getKcConfigValue(option.getKey()))
+                .filter(Configuration::isUserModifiable)
+                .isPresent();
+    }
+
     public static boolean isTrue(String propertyName) {
         return getOptionalBooleanValue(propertyName).orElse(false);
+    }
+
+    public static boolean isKcPropertyTrue(String propertyName) {
+        return getOptionalBooleanKcValue(propertyName).orElse(false);
     }
 
     public static boolean isBlank(Option<?> option) {
@@ -71,6 +87,10 @@ public final class Configuration {
         return getOptionalValue(NS_KEYCLOAK_PREFIX + option.getKey())
                 .filter(f -> f.equals(value))
                 .isPresent();
+    }
+
+    public static boolean isInitialized() {
+        return config != null;
     }
 
     public static synchronized SmallRyeConfig getConfig() {
@@ -93,10 +113,6 @@ public final class Configuration {
 
     public static Map<String, String> getRawPersistedProperties() {
         return PersistedConfigSource.getInstance().getProperties();
-    }
-
-    public static String getRawValue(String propertyName) {
-        return getConfig().getRawValue(propertyName);
     }
 
     public static Iterable<String> getPropertyNames() {
@@ -160,11 +176,17 @@ public final class Configuration {
     }
 
     public static String toDashCase(String key) {
+        if (key == null) {
+            return null;
+        }
         StringBuilder sb = new StringBuilder(key.length());
         boolean l = false;
 
         for (int i = 0; i < key.length(); i++) {
             char c = key.charAt(i);
+            if (c == ',') {
+                c = '-'; // should not happen, but was allowed by the previous logic
+            }
             if (l && Character.isUpperCase(c)) {
                 sb.append('-');
                 c = Character.toLowerCase(c);

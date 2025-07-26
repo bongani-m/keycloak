@@ -1,6 +1,8 @@
 package org.keycloak.testframework.realm;
 
 import org.keycloak.representations.idm.ClientRepresentation;
+import org.keycloak.representations.idm.GroupRepresentation;
+import org.keycloak.representations.idm.IdentityProviderRepresentation;
 import org.keycloak.representations.idm.RealmRepresentation;
 import org.keycloak.representations.idm.RolesRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
@@ -57,6 +59,15 @@ public class RealmConfigBuilder {
         UserRepresentation user = new UserRepresentation();
         rep.getUsers().add(user);
         return UserConfigBuilder.update(user).enabled(true).username(username);
+    }
+
+    public GroupConfigBuilder addGroup(String name) {
+        if (rep.getGroups() == null) {
+            rep.setGroups(new LinkedList<>());
+        }
+        GroupRepresentation group = new GroupRepresentation();
+        rep.getGroups().add(group);
+        return GroupConfigBuilder.update(group).name(name);
     }
 
     public RealmConfigBuilder registrationEmailAsUsername(boolean registrationEmailAsUsername) {
@@ -129,7 +140,22 @@ public class RealmConfigBuilder {
         if (rep.getRoles() == null) {
             rep.setRoles(new RolesRepresentation());
         }
-        rep.getRoles().setRealm(Collections.combine(rep.getRoles().getRealm(), Arrays.stream(roleNames).map(Representations::toRole)));
+        rep.getRoles().setRealm(Collections.combine(
+                rep.getRoles().getRealm(),
+                Arrays.stream(roleNames).map(r -> Representations.toRole(r, false))
+        ));
+        return this;
+    }
+
+    public RealmConfigBuilder clientRoles(String client, String... clientRoles) {
+        if (rep.getRoles() == null) {
+            rep.setRoles(new RolesRepresentation());
+        }
+        rep.getRoles().setClient(Collections.combine(
+                rep.getRoles().getClient(),
+                client,
+                Arrays.stream(clientRoles).map(r -> Representations.toRole(r, true))
+        ));
         return this;
     }
 
@@ -138,8 +164,13 @@ public class RealmConfigBuilder {
         return this;
     }
 
-    public RealmConfigBuilder internationalizationEnabled() {
-        rep.setInternationalizationEnabled(true);
+    public RealmConfigBuilder defaultGroups(String... groupsNames) {
+        rep.setDefaultGroups(Collections.combine(rep.getDefaultGroups(), groupsNames));
+        return this;
+    }
+
+    public RealmConfigBuilder internationalizationEnabled(boolean enabled) {
+        rep.setInternationalizationEnabled(enabled);
         return this;
     }
 
@@ -148,6 +179,11 @@ public class RealmConfigBuilder {
             rep.setSupportedLocales(new HashSet<>());
         }
         rep.getSupportedLocales().addAll(Set.of(supportedLocales));
+        return this;
+    }
+
+    public RealmConfigBuilder defaultLocale(String locale) {
+        rep.setDefaultLocale(locale);
         return this;
     }
 
@@ -175,8 +211,43 @@ public class RealmConfigBuilder {
         return this;
     }
 
+    public RealmConfigBuilder duplicateEmailsAllowed(boolean duplicateEmailsAllowed) {
+        rep.setDuplicateEmailsAllowed(duplicateEmailsAllowed);
+        return this;
+    }
+
+    public RealmConfigBuilder sslRequired(String sslRequired) {
+        rep.setSslRequired(sslRequired);
+        return this;
+    }
+
+    public RealmConfigBuilder identityProvider(IdentityProviderRepresentation identityProvider) {
+        rep.addIdentityProvider(identityProvider);
+        return this;
+    }
+
+    /**
+     * Best practice is to use other convenience methods when configuring a realm, but while the framework is under
+     * active development there may not be a way to perform all updates required. In these cases this method allows
+     * applying any changes to the underlying representation.
+     *
+     * @param update
+     * @return this
+     * @deprecated
+     */
+    public RealmConfigBuilder update(RealmUpdate... update) {
+        Arrays.stream(update).forEach(u -> u.update(rep));
+        return this;
+    }
+
     public RealmRepresentation build() {
         return rep;
+    }
+
+    public interface RealmUpdate {
+
+        void update(RealmRepresentation realm);
+
     }
 
 }

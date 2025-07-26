@@ -24,13 +24,16 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.keycloak.authorization.AdminPermissionsSchema.GROUPS_RESOURCE_TYPE;
-import static org.keycloak.authorization.AdminPermissionsSchema.MANAGE;
-import static org.keycloak.authorization.AdminPermissionsSchema.MANAGE_GROUP_MEMBERSHIP;
-import static org.keycloak.authorization.AdminPermissionsSchema.MANAGE_MEMBERS;
-import static org.keycloak.authorization.AdminPermissionsSchema.MANAGE_MEMBERSHIP;
-import static org.keycloak.authorization.AdminPermissionsSchema.VIEW;
-import static org.keycloak.authorization.AdminPermissionsSchema.VIEW_MEMBERS;
+import static org.keycloak.authorization.fgap.AdminPermissionsSchema.GROUPS_RESOURCE_TYPE;
+import static org.keycloak.authorization.fgap.AdminPermissionsSchema.IMPERSONATE;
+import static org.keycloak.authorization.fgap.AdminPermissionsSchema.IMPERSONATE_MEMBERS;
+import static org.keycloak.authorization.fgap.AdminPermissionsSchema.MANAGE;
+import static org.keycloak.authorization.fgap.AdminPermissionsSchema.MANAGE_GROUP_MEMBERSHIP;
+import static org.keycloak.authorization.fgap.AdminPermissionsSchema.MANAGE_MEMBERS;
+import static org.keycloak.authorization.fgap.AdminPermissionsSchema.MANAGE_MEMBERSHIP;
+import static org.keycloak.authorization.fgap.AdminPermissionsSchema.USERS_RESOURCE_TYPE;
+import static org.keycloak.authorization.fgap.AdminPermissionsSchema.VIEW;
+import static org.keycloak.authorization.fgap.AdminPermissionsSchema.VIEW_MEMBERS;
 
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.NotFoundException;
@@ -38,13 +41,11 @@ import jakarta.ws.rs.core.Response;
 import java.util.List;
 import java.util.Set;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.resource.GroupsResource;
-import org.keycloak.admin.client.resource.ScopePermissionsResource;
-import org.keycloak.authorization.AdminPermissionsSchema;
+import org.keycloak.authorization.fgap.AdminPermissionsSchema;
 import org.keycloak.representations.idm.GroupRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
@@ -58,11 +59,14 @@ import org.keycloak.testframework.realm.ManagedUser;
 import org.keycloak.testframework.realm.UserConfigBuilder;
 import org.keycloak.testframework.util.ApiUtil;
 
-@KeycloakIntegrationTest(config = KeycloakAdminPermissionsServerConfig.class)
+@KeycloakIntegrationTest
 public class GroupResourceTypeEvaluationTest extends AbstractPermissionTest {
 
     @InjectUser(ref = "alice")
     ManagedUser userAlice;
+
+    @InjectUser(ref = "jdoe")
+    ManagedUser userJdoe;
 
     @InjectAdminClient(mode = InjectAdminClient.Mode.MANAGED_REALM, client = "myclient", user = "myadmin")
     Keycloak realmAdminClient;
@@ -79,15 +83,6 @@ public class GroupResourceTypeEvaluationTest extends AbstractPermissionTest {
             realm.cleanup().add(r -> r.groups().group(topGroup.getId()).remove());
         }
         realm.admin().users().get(userAlice.getId()).joinGroup(topGroup.getId());
-    }
-
-    @AfterEach
-    public void onAfter() {
-        ScopePermissionsResource permissions = getScopePermissionsResource(client);
-
-        for (ScopePermissionRepresentation permission : permissions.findAll(null, null, null, -1, -1)) {
-            permissions.findById(permission.getId()).remove();
-        }
     }
 
     @Test
@@ -380,15 +375,72 @@ public class GroupResourceTypeEvaluationTest extends AbstractPermissionTest {
         } catch (ForbiddenException expected) {}
     }
 
+    @Test
+    public void testImpersonateMembers() {
+        UserRepresentation myadmin = realm.admin().users().search("myadmin").get(0);
+        UserPolicyRepresentation allowMyAdminPermission = createUserPolicy(realm, client, "Only My Admin User Policy", myadmin.getId());
+
+        // my admin should not be able to manage yet
+        try {
+            realmAdminClient.realm(realm.getName()).users().get(userAlice.getId()).impersonate();
+            fail("Expected Exception wasn't thrown.");
+        } catch (Exception ex) {
+            assertThat(ex, instanceOf(ForbiddenException.class));
+        }
+
+        // allow my admin to impersonate members of the group where Alice is member of
+        createGroupPermission(topGroup, Set.of(IMPERSONATE_MEMBERS), allowMyAdminPermission);
+
+        realmAdminClient.realm(realm.getName()).users().get(userAlice.getId()).impersonate();
+        realmAdminClient.tokenManager().logout();
+    }
+
+    @Test
+    public void testImpersonateMembersFromChildGroups() {
+        // my admin should not be able to manage yet
+        try {
+            realmAdminClient.realm(realm.getName()).users().get(userJdoe.getId()).impersonate();
+            fail("Expected Exception wasn't thrown.");
+        } catch (Exception ex) {
+            assertThat(ex, instanceOf(ForbiddenException.class));
+        }
+
+        GroupRepresentation subGroup = new GroupRepresentation();
+        subGroup.setName("testSubGroup");
+        String testGroupId = ApiUtil.handleCreatedResponse(realm.admin().groups().add(subGroup));
+        subGroup.setId(testGroupId);
+        realm.admin().groups().group(topGroup.getId()).subGroup(subGroup).close();
+        realm.admin().users().get(userJdoe.getId()).joinGroup(subGroup.getId());
+        assertTrue(userJdoe.admin().groups().stream().map(GroupRepresentation::getName).allMatch(subGroup.getName()::equals));
+
+        // allow my admin to impersonate members of the group and its children
+        UserRepresentation myadmin = realm.admin().users().search("myadmin").get(0);
+        UserPolicyRepresentation allowMyAdminPermission = createUserPolicy(realm, client, "Only My Admin User Policy", myadmin.getId());
+        createGroupPermission(topGroup, Set.of(IMPERSONATE_MEMBERS), allowMyAdminPermission);
+
+        realmAdminClient.realm(realm.getName()).users().get(userJdoe.getId()).impersonate();
+        realmAdminClient.tokenManager().logout();
+
+        UserPolicyRepresentation denyPolicy = createUserPolicy(Logic.NEGATIVE, realm, client, "Deny My Admin User Policy", myadmin.getId());
+        createPermission(client, userAlice.getId(), USERS_RESOURCE_TYPE, Set.of(IMPERSONATE), denyPolicy);
+        try {
+            realmAdminClient.realm(realm.getName()).users().get(userAlice.getId()).impersonate();
+            fail("Expected Exception wasn't thrown.");
+        } catch (Exception ex) {
+            assertThat(ex, instanceOf(ForbiddenException.class));
+        } finally {
+            realmAdminClient.tokenManager().logout();
+        }
+
+        realmAdminClient.realm(realm.getName()).users().get(userJdoe.getId()).impersonate();
+        realmAdminClient.tokenManager().logout();
+    }
+
     private ScopePermissionRepresentation createAllGroupsPermission(UserPolicyRepresentation policy, Set<String> scopes) {
         return createAllPermission(client, AdminPermissionsSchema.GROUPS_RESOURCE_TYPE, policy, scopes);
     }
 
     private ScopePermissionRepresentation createAllUserPermission(UserPolicyRepresentation policy, Set<String> scopes) {
         return createAllPermission(client, AdminPermissionsSchema.USERS_RESOURCE_TYPE, policy, scopes);
-    }
-
-    private ScopePermissionRepresentation createGroupPermission(GroupRepresentation group, Set<String> scopes, UserPolicyRepresentation... policies) {
-        return createPermission(client, group.getId(), AdminPermissionsSchema.GROUPS_RESOURCE_TYPE, scopes, policies);
     }
 }

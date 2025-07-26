@@ -17,6 +17,7 @@
 
 package org.keycloak.it.cli.dist;
 
+import static io.restassured.RestAssured.when;
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.notNullValue;
@@ -46,7 +47,7 @@ import org.testcontainers.shaded.org.apache.commons.io.FileUtils;
 import io.quarkus.deployment.util.FileUtil;
 import io.quarkus.test.junit.main.Launch;
 
-@DistributionTest
+@DistributionTest(keepAlive = true)
 @RawDistOnly(reason = "Too verbose for docker and enough to check raw dist")
 @Tag(DistributionTest.SLOW)
 public class LoggingDistTest {
@@ -256,6 +257,22 @@ public class LoggingDistTest {
         String data = readDefaultFileLog(path);
         assertThat(data, containsString("ecs.version"));
         assertThat(data, containsString("@timestamp"));
+    }
+
+    @Test
+    @Launch({"start-dev", "--log-async=true"})
+    void asyncLogging(CLIResult cliResult) {
+        cliResult.assertStartedDevMode();
+    }
+
+    @Test
+    @Launch({ "start-dev", "--features=log-mdc","--log-mdc-enabled=true", "--log-level=org.keycloak:debug" })
+    void testLogMdcShowingInTheLogs(CLIResult cliResult) {
+
+        when().get("http://127.0.0.1:8080/realms/master/.well-known/openid-configuration").then()
+                .statusCode(200);
+        assertTrue(cliResult.getOutput().contains("{kc.realm=master} DEBUG [org.keycloak."));
+        cliResult.assertStartedDevMode();
     }
 
     protected static String readDefaultFileLog(RawDistRootPath path) {

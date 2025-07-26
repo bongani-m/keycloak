@@ -63,6 +63,11 @@ import org.keycloak.util.TokenUtil;
 public class StandardTokenExchangeProvider extends AbstractTokenExchangeProvider {
 
     @Override
+    public int getVersion() {
+        return 2;
+    }
+
+    @Override
     public boolean supports(TokenExchangeContext context) {
         // Subject impersonation request
         String requestedSubject = context.getFormParams().getFirst(OAuth2Constants.REQUESTED_SUBJECT);
@@ -197,12 +202,6 @@ public class StandardTokenExchangeProvider extends AbstractTokenExchangeProvider
     }
 
     @Override
-    protected void setClientToContext(List<ClientModel> targetAudienceClients) {
-        // The client requesting exchange is set in the context
-        session.getContext().setClient(client);
-    }
-
-    @Override
     protected Response exchangeClientToOIDCClient(UserModel targetUser, UserSessionModel targetUserSession, String requestedTokenType,
                                                   List<ClientModel> targetAudienceClients, String scope, AccessToken subjectToken) {
         RootAuthenticationSessionModel rootAuthSession = new AuthenticationSessionManager(session).createAuthenticationSession(realm, false);
@@ -249,23 +248,26 @@ public class StandardTokenExchangeProvider extends AbstractTokenExchangeProvider
             clientSessionCtx.setAttribute(Constants.GRANT_TYPE, OAuth2Constants.TOKEN_EXCHANGE_GRANT_TYPE);
 
             TokenContextEncoderProvider encoder = session.getProvider(TokenContextEncoderProvider.class);
-            AccessTokenContext subjectTokenContext = encoder.getTokenContextFromTokenId(subjectToken.getId());
 
-            //copy subject client from the client session notes if the subject token used has already been exchanged
-            if (OAuth2Constants.TOKEN_EXCHANGE_GRANT_TYPE.equals(subjectTokenContext.getGrantType())) {
-                ClientModel subjectClient = session.clients().getClientByClientId(realm, subjectToken.getIssuedFor());
-                if (subjectClient != null) {
-                    AuthenticatedClientSessionModel subjectClientSession = targetUserSession.getAuthenticatedClientSessionByClient(subjectClient.getId());
-                    if (subjectClientSession != null) {
-                        subjectClientSession.getNotes().entrySet().stream()
-                                .filter(note -> note.getKey().startsWith(Constants.TOKEN_EXCHANGE_SUBJECT_CLIENT))
-                                .forEach(note -> clientSessionCtx.getClientSession().setNote(note.getKey(), note.getValue()));
+            if (subjectToken != null) {
+                AccessTokenContext subjectTokenContext = encoder.getTokenContextFromTokenId(subjectToken.getId());
+
+                //copy subject client from the client session notes if the subject token used has already been exchanged
+                if (OAuth2Constants.TOKEN_EXCHANGE_GRANT_TYPE.equals(subjectTokenContext.getGrantType())) {
+                    ClientModel subjectClient = session.clients().getClientByClientId(realm, subjectToken.getIssuedFor());
+                    if (subjectClient != null) {
+                        AuthenticatedClientSessionModel subjectClientSession = targetUserSession.getAuthenticatedClientSessionByClient(subjectClient.getId());
+                        if (subjectClientSession != null) {
+                            subjectClientSession.getNotes().entrySet().stream()
+                                    .filter(note -> note.getKey().startsWith(Constants.TOKEN_EXCHANGE_SUBJECT_CLIENT))
+                                    .forEach(note -> clientSessionCtx.getClientSession().setNote(note.getKey(), note.getValue()));
+                        }
                     }
                 }
-            }
 
-            //store client id of the subject token
-            clientSessionCtx.getClientSession().setNote(Constants.TOKEN_EXCHANGE_SUBJECT_CLIENT + subjectToken.getIssuedFor(), subjectToken.getId());
+                //store client id of the subject token
+                clientSessionCtx.getClientSession().setNote(Constants.TOKEN_EXCHANGE_SUBJECT_CLIENT + subjectToken.getIssuedFor(), subjectToken.getId());
+            }
 
             TokenManager.AccessTokenResponseBuilder responseBuilder = tokenManager.responseBuilder(realm, client, event, session,
                     clientSessionCtx.getClientSession().getUserSession(), clientSessionCtx).generateAccessToken();
